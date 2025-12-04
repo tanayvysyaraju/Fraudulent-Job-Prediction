@@ -139,11 +139,11 @@ coeffs = log_reg.coef_[0]
 top_fraud_idx = coeffs.argsort()[-20:]   # largest positive coefficients
 top_real_idx = coeffs.argsort()[:20]     # largest negative coefficients
 
-print("\nTop Keywords Indicating FRAUD:")
+print("\nTop Features/Keywords Indicating FRAUD:")
 for word in all_feature_names[top_fraud_idx]:
     print("-", word)
 
-print("\nTop Keywords Indicating REAL Jobs:")
+print("\nTop Features/Keywords Indicating REAL Jobs:")
 for word in all_feature_names[top_real_idx]:
     print("-", word)
 
