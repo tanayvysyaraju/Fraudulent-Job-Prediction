@@ -2,6 +2,7 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from sklearn.tree import plot_tree
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
