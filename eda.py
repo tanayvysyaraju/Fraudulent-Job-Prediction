@@ -9,7 +9,7 @@ sns.set_theme(style="whitegrid", palette="Set2", font_scale=1.2)
 plt.rcParams["figure.dpi"] = 110
 
 
-df = pd.read_csv("data/CleanedJobPostings.csv")
+df = pd.read_csv("/Users/krishapatel/Downloads/CS439/Fraudulent-Job-Prediction/data/CleanedJobPostings.csv")
 
 
 
