@@ -2,6 +2,7 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import os
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -16,13 +17,15 @@ from scipy import sparse
 print("Loading TF-IDF data...")
 
 # 1. Load saved data
-tfidf = joblib.load("tfidf_vectorizer.pkl")
-X_train = joblib.load("X_train.pkl")
-X_test = joblib.load("X_test.pkl")
-X_train_tfidf = joblib.load("X_train_tfidf.pkl")
-X_test_tfidf = joblib.load("X_test_tfidf.pkl")
-y_train = joblib.load("y_train.pkl")
-y_test = joblib.load("y_test.pkl")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+tfidf = joblib.load("../feature_engineering/tfidf_vectorizer.pkl")
+X_train = joblib.load("../feature_engineering/X_train.pkl")
+X_test = joblib.load("../feature_engineering/X_test.pkl")
+X_train_tfidf = joblib.load("../feature_engineering/X_train_tfidf.pkl")
+X_test_tfidf = joblib.load("../feature_engineering/X_test_tfidf.pkl")
+y_train = joblib.load("../feature_engineering/y_train.pkl")
+y_test = joblib.load("../feature_engineering/y_test.pkl")
 
 print("Data loaded successfully.\n")
 
