@@ -42,7 +42,7 @@ print("Shape:", df.shape)
 print("Columns:", df.columns.tolist())
 
 # ------------------------------------------------------------------------------
-# 4. TEXT PROCESSING (same as training)
+# 4. TEXT PROCESSING
 # ------------------------------------------------------------------------------
 df["text"] = (
     df["Position Title"].astype(str)
@@ -67,7 +67,7 @@ X_text = tfidf.transform(df["text"])
 print("TF-IDF transformed text shape:", X_text.shape)
 
 # ------------------------------------------------------------------------------
-# 6. STRUCTURED FEATURES (must match training EXACTLY)
+# 6. STRUCTURED FEATURES 
 # ------------------------------------------------------------------------------
 
 df_struct = df.reindex(columns=structured_cols, fill_value=0)
@@ -115,7 +115,6 @@ if "category" in df.columns:
     print("\nDistribution by NewGrad category:")
     print(df.groupby("category")["rf_pred_fraud"].value_counts())
 
-
 # ------------------------------------------------------------------------------
 # 10. SAVE RESULTS
 # ------------------------------------------------------------------------------
@@ -124,4 +123,4 @@ output_path = os.path.join(BASE_DIR, "newgrad_rf_predictions.csv")
 df.to_csv(output_path, index=False)
 
 print(f"\nSaved predictions to: {output_path}")
-print("\n=== DONE! ===")
+print("\n== DONE! ==")
