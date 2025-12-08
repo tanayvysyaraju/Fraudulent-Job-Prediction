@@ -1,98 +1,127 @@
+import os
 import joblib
 import numpy as np
 import pandas as pd
-from scipy.sparse import csr_matrix, hstack
+from scipy import sparse
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-# ----------------------------------------------------
-# 1. Load trained model, vectorizer, and feature list
-# ----------------------------------------------------
-rf_clf = joblib.load("random_forest_model/random_forest_all_features.pkl")
-tfidf = joblib.load("feature_engineering/tfidf_vectorizer.pkl")
-structured_cols = joblib.load("feature_engineering/structured_feature_columns.pkl")
+print("\n=== VALIDATING NEW GRAD JOBS WITH RANDOM FOREST ===")
 
+# ------------------------------------------------------------------------------
+# 1. SET WORKING DIRECTORY
+# ------------------------------------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)   # project root
 
-print("Loaded RF model + TF-IDF + structured columns.")
-print("Structured features expected:", len(structured_cols))
+FEATURE_DIR = os.path.join(ROOT_DIR, "feature_engineering")
+DATA_DIR = os.path.join(ROOT_DIR, "data")
 
-# ----------------------------------------------------
-# 2. Load the combined NEW GRAD dataset
-# ----------------------------------------------------
-df = pd.read_csv("combined_newgrad_data.csv")
+# ------------------------------------------------------------------------------
+# 2. LOAD TRAINING-TIME ARTIFACTS
+# ------------------------------------------------------------------------------
+
+print("Loading TF-IDF, model, and structured columns...")
+
+tfidf = joblib.load(os.path.join(FEATURE_DIR, "tfidf_vectorizer.pkl"))
+rf_model = joblib.load(os.path.join(BASE_DIR, "random_forest_all_features.pkl"))
+
+# We need X_train to know which structured features were used during training
+X_train = joblib.load(os.path.join(FEATURE_DIR, "X_train.pkl"))
+structured_cols = X_train.columns.to_list()
+
+print(f"Structured feature count expected: {len(structured_cols)}")
+
+# ------------------------------------------------------------------------------
+# 3. LOAD NEW GRAD DATA
+# ------------------------------------------------------------------------------
+newgrad_path = os.path.join(DATA_DIR, "combined_newgrad_data.csv")
+df = pd.read_csv(newgrad_path)
 
 print("\nLoaded combined_newgrad_data.csv")
 print("Shape:", df.shape)
 print("Columns:", df.columns.tolist())
 
-# ----------------------------------------------------
-# 3. Build the same TEXT column used in training
-# ----------------------------------------------------
-def make_text(row):
-    parts = [
-        row.get("Position Title", ""),
-        row.get("Qualifications", ""),
-        row.get("Work Model", ""),
-        row.get("Location", "")
-    ]
-    return " ".join(str(p) for p in parts if pd.notna(p) and str(p).strip() != "")
+# ------------------------------------------------------------------------------
+# 4. TEXT PROCESSING (same as training)
+# ------------------------------------------------------------------------------
+df["text"] = (
+    df["Position Title"].astype(str)
+    + " "
+    + df["Qualifications"].astype(str)
+    + " "
+    + df["Company Industry"].astype(str)
+)
 
-df["text"] = df.apply(make_text, axis=1)
-df["location"] = df["Location"].fillna("")
+# fill missing text
+df["text"] = df["text"].fillna("")
 
 print("\nSample combined text:")
 print(df["text"].head(3))
 
-# ----------------------------------------------------
-# 4. Transform TEXT using saved TF-IDF
-# ----------------------------------------------------
+# ------------------------------------------------------------------------------
+# 5. APPLY TF-IDF
+# ------------------------------------------------------------------------------
+print("\nTransforming text with TF-IDF...")
 X_text = tfidf.transform(df["text"])
-print("\nTF-IDF transformed text shape:", X_text.shape)
 
-# ----------------------------------------------------
-# 5. Build STRUCTURED FEATURES with correct columns
-# ----------------------------------------------------
-X_struct = pd.DataFrame(
-    0, index=df.index, columns=structured_cols, dtype=float
-)
+print("TF-IDF transformed text shape:", X_text.shape)
 
-# Map your newgrad columns → model columns if names overlap
-column_map = {
-    "category": "category",
-    "h1b_sponsored": "H1b Sponsored",
-    "is_new_grad": "Is New Grad",
-}
+# ------------------------------------------------------------------------------
+# 6. STRUCTURED FEATURES (must match training EXACTLY)
+# ------------------------------------------------------------------------------
 
-for model_col, newgrad_col in column_map.items():
-    if model_col in X_struct.columns and newgrad_col in df.columns:
-        tmp = df[newgrad_col].copy()
-        tmp = tmp.replace({"Yes": 1, "No": 0, "Y": 1, "N": 0})
-        X_struct[model_col] = pd.to_numeric(tmp, errors="coerce").fillna(0)
-        print(f"Filled structured feature: {model_col} from column {newgrad_col}")
+df_struct = df.reindex(columns=structured_cols, fill_value=0)
 
-X_struct_sparse = csr_matrix(X_struct.to_numpy(dtype=float))
+# Convert booleans to numeric (same as training)
+bool_cols = df_struct.select_dtypes(include="bool").columns
+if len(bool_cols) > 0:
+    df_struct[bool_cols] = df_struct[bool_cols].astype(np.int8)
 
-# ----------------------------------------------------
-# 6. Combine TF-IDF + structured features
-# ----------------------------------------------------
-X_final = hstack([X_text, X_struct_sparse], format="csr")
+df_struct = df_struct.fillna(0)
+
+X_struct_sparse = sparse.csr_matrix(df_struct.values.astype(float))
+
+# ------------------------------------------------------------------------------
+# 7. COMBINE FEATURES: [TF-IDF | STRUCTURED]
+# ------------------------------------------------------------------------------
+
+X_final = sparse.hstack([X_text, X_struct_sparse], format="csr")
+
 print("\nFINAL feature matrix shape:", X_final.shape)
 
-# ----------------------------------------------------
-# 7. Predict with Random Forest
-# ----------------------------------------------------
-df["rf_pred_fraud"] = rf_clf.predict(X_final)
-df["rf_fraud_probability"] = rf_clf.predict_proba(X_final)[:, 1]
+# ------------------------------------------------------------------------------
+# 8. PREDICT
+# ------------------------------------------------------------------------------
 
-print("\nPrediction distribution (0=real, 1=fraud):")
-print(df["rf_pred_fraud"].value_counts())
+preds = rf_model.predict(X_final)
+
+df["rf_pred_fraud"] = preds
+
+pred_counts = df["rf_pred_fraud"].value_counts().reindex([0,1], fill_value=0)
+
+summary_df = pd.DataFrame({
+    "Meaning": ["Real job posting", "Fraud job posting"],
+    "Count": [pred_counts[0], pred_counts[1]]
+}, index=["0", "1"])
+
+print("\n=== Prediction Summary ===")
+print(summary_df)
+
+# ------------------------------------------------------------------------------
+# 9. SUMMARY BY CATEGORY
+# ------------------------------------------------------------------------------
 
 if "category" in df.columns:
-    print("\nDistribution BY CATEGORY:")
-    print(df.groupby(["category", "rf_pred_fraud"]).size().unstack(fill_value=0))
+    print("\nDistribution by NewGrad category:")
+    print(df.groupby("category")["rf_pred_fraud"].value_counts())
 
-# ----------------------------------------------------
-# 8. SAVE RESULTS
-# ----------------------------------------------------
-output_path = "newgrad_rf_predictions.csv"
+
+# ------------------------------------------------------------------------------
+# 10. SAVE RESULTS
+# ------------------------------------------------------------------------------
+
+output_path = os.path.join(BASE_DIR, "newgrad_rf_predictions.csv")
 df.to_csv(output_path, index=False)
 
-print(f"\nSaved results to: {output_path}")
+print(f"\nSaved predictions to: {output_path}")
+print("\n=== DONE! ===")
