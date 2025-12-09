@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 
 # File paths
-path1 = "/Users/renukaparhad/Desktop/FradulentJob/Fraudulent-Job-Prediction/data/FakePostings.csv"
-path2 = "/Users/renukaparhad/Desktop/FradulentJob/Fraudulent-Job-Prediction/data/RealAndFake.csv"
+path1 = "data/FakePostings.csv"
+path2 = "data/RealAndFake.csv"
 
 # Load datasets
 df_fake = pd.read_csv(path1)
