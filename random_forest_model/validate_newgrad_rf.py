@@ -2,6 +2,7 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
+from scipy import sparse
 
 print("\n=== VALIDATING NEW GRAD JOBS WITH RANDOM FOREST  ===")
 
@@ -16,71 +17,39 @@ DATA_DIR = os.path.join(ROOT_DIR, "data")
 # load training-time artifacts
 print("loading tf-idf, svd, model, and structured columns...")
 
-tfidf = joblib.load(os.path.join(FEATURE_DIR, "tfidf_vectorizer.pkl"))
 rf_model = joblib.load(os.path.join(BASE_DIR, "random_forest_all_features.pkl"))
-svd = joblib.load(os.path.join(BASE_DIR, "rf_tfidf_svd_300.pkl"))
 
-# use X_train just to recover which structured columns were used
-X_train = joblib.load(os.path.join(FEATURE_DIR, "X_train.pkl"))
-structured_cols = X_train.columns.to_list()
-print(f"structured feature count expected: {len(structured_cols)}")
+X_scraped_tfidf = joblib.load(os.path.join(BASE_DIR,"../feature_engineering/scraped_tfidf_matrix.pkl"))  # sparse matrix
+X_scraped_struct = joblib.load(os.path.join(BASE_DIR,"../feature_engineering/scraped_feature_list.pkl")) # DataFrame 
 
+tfidf = joblib.load(os.path.join(BASE_DIR, "../feature_engineering/tfidf_vectorizer.pkl"))
+svd = joblib.load(os.path.join(BASE_DIR, "../XGboost_model_folder/tfidf_svd.pkl"))
 
-# 3. load new grad data
-newgrad_path = os.path.join(DATA_DIR, "combined_newgrad_data.csv")
-df = pd.read_csv(newgrad_path)
+#need to transform with same svd as tested on
+X_scraped_tfidf_svd = svd.transform(X_scraped_tfidf)
 
-print("\nloaded combined_newgrad_data.csv")
-print("shape:", df.shape)
-print("columns:", df.columns.tolist())
+#dont think we need this method but keeping in case it breaks
+def to_numeric_sparse(df):
+    df = df.copy()
+    bool_cols = df.select_dtypes(include="bool").columns.tolist()
+    if bool_cols:
+        df[bool_cols] = df[bool_cols].astype(np.int8)
+    return sparse.csr_matrix(df.values)
 
-# text processing
-df["text"] = (
-    df["Position Title"].astype(str)
-    + " "
-    + df["Qualifications"].astype(str)
-    + " "
-    + df["Company Industry"].astype(str)
-)
+X_scraped_struct_sparse = to_numeric_sparse(X_scraped_struct)
 
-df["text"] = df["text"].fillna("")
+# Convert SVD output to sparse (optional)
+X_scraped_tfidf_sparse = sparse.csr_matrix(X_scraped_tfidf_svd)
 
-print("\nsample combined text:")
-print(df["text"].head(3))
+# Combine SVD + structured features
+X_scraped_combined = sparse.hstack([X_scraped_tfidf_sparse, X_scraped_struct_sparse])
 
-
-# tf-idf -> svd 
-print("\ntransforming text with tf-idf...")
-X_text_tfidf = tfidf.transform(df["text"])
-print("tf-idf transformed text shape:", X_text_tfidf.shape)
-
-print("applying truncated svd (same 300 components as training)...")
-X_text_svd = svd.transform(X_text_tfidf)
-print("svd-reduced text shape:", X_text_svd.shape)
-
-
-# structured features 
-df_struct = df.reindex(columns=structured_cols, fill_value=0).copy()
-
-bool_cols = df_struct.select_dtypes(include="bool").columns
-if len(bool_cols) > 0:
-    df_struct[bool_cols] = df_struct[bool_cols].astype(np.int8)
-
-df_struct = df_struct.fillna(0)
-
-# dense numpy array, because training used dense stacking
-X_struct_dense = df_struct.values.astype(float)
-print("structured dense shape:", X_struct_dense.shape)
-
-# combine features: [svd(tf-idf) | structured]
-X_final = np.hstack([X_text_svd, X_struct_dense])
-print("\nFINAL feature matrix shape:", X_final.shape)
-
+#end rksiha
 # predict
-preds = rf_model.predict(X_final)
-df["rf_pred_fraud"] = preds
+preds = rf_model.predict(X_scraped_combined)
+X_scraped_struct["rf_pred_fraud"] = preds
 
-pred_counts = df["rf_pred_fraud"].value_counts().reindex([0, 1], fill_value=0)
+pred_counts = X_scraped_struct["rf_pred_fraud"].value_counts().reindex([0, 1], fill_value=0)
 
 summary_df = pd.DataFrame(
     {
@@ -95,13 +64,13 @@ print(summary_df)
 
 # summary by category
 
-if "category" in df.columns:
+if "category" in X_scraped_struct.columns:
     print("\ndistribution by NewGrad category:")
-    print(df.groupby("category")["rf_pred_fraud"].value_counts())
+    print(X_scraped_struct.groupby("category")["rf_pred_fraud"].value_counts())
 
 # save results
 output_path = os.path.join(BASE_DIR, "newgrad_rf_predictions.csv")
-df.to_csv(output_path, index=False)
+X_scraped_struct.to_csv(output_path, index=False)
 
 print(f"\nsaved predictions to: {output_path}")
 print("\n DONE!\n")
