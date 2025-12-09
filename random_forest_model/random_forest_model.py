@@ -145,7 +145,7 @@ plt.savefig("rf_svd_pr_curve.png")
 plt.close()
 print("Precision-Recall curve saved as rf_svd_pr_curve.png")
 
-# === Feature importances  ===
+# === Feature importances ===
 print("\nExtracting feature importances...")
 
 importances = rf.feature_importances_
