@@ -21,7 +21,7 @@ from sklearn.metrics import (
 print("Loading TF-IDF and structured feature data...")
 
 
-#1. Load saved data 
+#Load saved data 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 tfidf = joblib.load("../feature_engineering/tfidf_vectorizer.pkl")
@@ -35,7 +35,7 @@ y_test = joblib.load("../feature_engineering/y_test.pkl")
 print("Data loaded successfully.\n")
 
 
-# 2. Structured features → numeric 
+# Structured features → numeric 
 X_train_numeric = X_train.copy()
 bool_cols_train = X_train_numeric.select_dtypes(include="bool").columns
 X_train_numeric[bool_cols_train] = X_train_numeric[bool_cols_train].astype(np.int8)
@@ -49,7 +49,7 @@ X_train_struct_sparse = sparse.csr_matrix(X_train_numeric.values)
 X_test_struct_sparse = sparse.csr_matrix(X_test_numeric.values)
 
 
-# 3. Apply SVD (300 components) on TF-IDF
+# Apply SVD (300 components) on TF-IDF
 print("Applying TruncatedSVD (n_components=300) on TF-IDF features...")
 
 svd = TruncatedSVD(n_components=300, random_state=42)
@@ -61,8 +61,7 @@ print("  X_train_svd:", X_train_svd.shape)
 print("  X_test_svd :", X_test_svd.shape)
 
 
-# 4. Combine SVD components + structured features
-#    (make structured features dense then hstack)
+# Combine SVD components + structured features
 X_train_struct_dense = X_train_struct_sparse.toarray()
 X_test_struct_dense = X_test_struct_sparse.toarray()
 
@@ -74,7 +73,7 @@ print("  X_train_combined:", X_train_combined.shape)
 print("  X_test_combined :", X_test_combined.shape)
 
 
-# 5. Logistic Regression model
+# Logistic Regression model
 print("\nRunning 5-fold stratified cross-validation on training set with SVD features...")
 
 base_log_reg = LogisticRegression(
@@ -136,7 +135,7 @@ print("\nCross-validated TRAIN classification report:")
 print(classification_report(y_train, y_train_cv_pred))
 
 
-# 6. Train final model on full training set
+# Train final model on full training set
 print("\nTraining final Logistic Regression model on full training data (with SVD)...")
 
 log_reg = base_log_reg
@@ -145,7 +144,7 @@ log_reg.fit(X_train_combined, y_train)
 print("Final model trained.\n")
 
 
-# 7. Evaluation on held-out test set
+# Evaluation on held-out test set
 print("Evaluating model on HELD-OUT test set...")
 
 y_pred = log_reg.predict(X_test_combined)
@@ -165,7 +164,7 @@ fraud_recall = recall_score(y_test, y_pred, pos_label=1)
 print("Fraud Recall (Recall on class 1):", fraud_recall)
 
 
-# 8. Confusion Matrix (on test set)
+# Confusion Matrix (on test set)
 cm = confusion_matrix(y_test, y_pred)
 
 plt.figure(figsize=(6, 5))
@@ -181,7 +180,7 @@ print("\nConfusion Matrix:")
 print(cm)
 
 
-# 9. Precision–Recall Curve
+#Precision–Recall Curve
 precision, recall, _ = precision_recall_curve(y_test, y_proba)
 
 plt.figure(figsize=(6, 5))
@@ -196,7 +195,7 @@ plt.close()
 print("\nSaved Precision–Recall curve as logreg_svd_pr_curve.png")
 
 
-# 10. Save model + SVD + structured column names
+#Save model + SVD + structured column names
 joblib.dump(log_reg, "logistic_model.pkl")            # SVD-based logistic model
 joblib.dump(svd, "logreg_tfidf_svd_300.pkl")          # SVD transformer
 joblib.dump(X_train_numeric.columns.to_list(),

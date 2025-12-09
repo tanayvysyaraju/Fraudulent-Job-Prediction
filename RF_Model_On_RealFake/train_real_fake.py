@@ -12,19 +12,13 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from imblearn.over_sampling import SMOTE
 
 
-# =============================================================
-#        TRAINING MODEL ON CLEANED REAL/FAKE DATA PROPERLY
-# =============================================================
-
 print("\n=== STARTING CLEAN RANDOM FOREST TRAINING (NO LEAKAGE) ===")
 
 DATA_PATH = "data/RealAndFake_cleaned.csv"
 df = pd.read_csv(DATA_PATH)
 print("Loaded cleaned training dataset:", df.shape)
 
-# -------------------------------------------------------------
-# 1. Separate text + structured columns
-# -------------------------------------------------------------
+
 text_col = "text"
 target_col = "fraudulent"
 
@@ -44,10 +38,9 @@ for col in obj_cols:
 
 df_struct = df_struct.fillna(0)
 
-# -------------------------------------------------------------
-# 2. Train/Test Split BEFORE SMOTE (IMPORTANT)
-# -------------------------------------------------------------
-print("\nSplitting dataset BEFORE SMOTE...")
+
+# 2. Train/Test Split before SMOTE
+print("\nSplitting dataset before SMOTE...")
 
 X_text_raw = df[text_col]
 X_struct_raw = df_struct
@@ -62,9 +55,8 @@ X_train_text, X_test_text, X_train_struct, X_test_struct, y_train, y_test = trai
 print("Train size:", y_train.shape[0])
 print("Test size:", y_test.shape[0])
 
-# -------------------------------------------------------------
-# 3. TF-IDF vectorizer (fit ONLY on training text)
-# -------------------------------------------------------------
+
+# TF-IDF vectorizer (fit ONLY on training text)
 print("\nVectorizing text (TF-IDF)...")
 
 tfidf = TfidfVectorizer(
@@ -79,24 +71,20 @@ X_test_text_vec = tfidf.transform(X_test_text)
 print("TF-IDF train shape:", X_train_text_vec.shape)
 print("TF-IDF test shape:", X_test_text_vec.shape)
 
-# -------------------------------------------------------------
-# 4. Prepare structured features
-# -------------------------------------------------------------
+
 X_train_struct_sparse = sparse.csr_matrix(X_train_struct.values.astype(float))
 X_test_struct_sparse = sparse.csr_matrix(X_test_struct.values.astype(float))
 
-# -------------------------------------------------------------
-# 5. Combine TF-IDF + Structured
-# -------------------------------------------------------------
+
+# Combine TF-IDF + Structured
 X_train_full = sparse.hstack([X_train_text_vec, X_train_struct_sparse], format="csr")
 X_test_full = sparse.hstack([X_test_text_vec, X_test_struct_sparse], format="csr")
 
 print("\nCombined Train Matrix:", X_train_full.shape)
 print("Combined Test Matrix:", X_test_full.shape)
 
-# -------------------------------------------------------------
-# 6. Apply SMOTE ONLY to training set (NO LEAK)
-# -------------------------------------------------------------
+
+# Apply SMOTE ONLY to training set 
 print("\nApplying SMOTE to training set only...")
 
 sm = SMOTE(random_state=42)
@@ -105,9 +93,8 @@ X_train_balanced, y_train_balanced = sm.fit_resample(X_train_full, y_train)
 print("Before SMOTE:", y_train.value_counts().to_dict())
 print("After SMOTE:", pd.Series(y_train_balanced).value_counts().to_dict())
 
-# -------------------------------------------------------------
-# 7. Train Random Forest (clean + strong settings)
-# -------------------------------------------------------------
+
+# Train Random Forest (clean + strong settings)
 print("\nTraining Random Forest model...")
 
 rf = RandomForestClassifier(
@@ -124,9 +111,8 @@ rf.fit(X_train_balanced, y_train_balanced)
 
 print("\n=== MODEL TRAINED SUCCESSFULLY ===")
 
-# -------------------------------------------------------------
-# 8. Evaluate REAL PERFORMANCE
-# -------------------------------------------------------------
+# Evaluate performance
+
 print("\nPredicting on test set (unseen, untouched)...")
 
 y_pred = rf.predict(X_test_full)
@@ -138,10 +124,8 @@ print(classification_report(y_test, y_pred))
 print("\nConfusion Matrix:")
 print(confusion_matrix(y_test, y_pred))
 
-# -------------------------------------------------------------
-# 9. SAVE MODEL ARTIFACTS
-# -------------------------------------------------------------
-SAVE_DIR = os.path.dirname(os.path.abspath(__file__))   # <--- saves into RF_Model_On_RealFake
+
+SAVE_DIR = os.path.dirname(os.path.abspath(__file__)) 
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 joblib.dump(rf, os.path.join(SAVE_DIR, "rf_real_fake_model.pkl"))
@@ -153,4 +137,4 @@ print(" - rf_real_fake_model.pkl")
 print(" - real_fake_tfidf.pkl")
 print(" - real_fake_structured_cols.pkl")
 
-print("\n=== CLEAN TRAINING COMPLETE (NO LEAKAGE) ===\n")
+print("\n=== CLEAN TRAINING COMPLETE ===\n")
