@@ -72,7 +72,3 @@ High recall and stable behavior; predicted 50 fraud cases.
 - True validation requires out-of-domain testing  
 - Feature engineering is crucial for fraud detection  
 - Collaborative workflows and version control are essential  
-
-## Repository
-
-https://github.com/tanayvysyaraju/Fraudulent-Job-Prediction
