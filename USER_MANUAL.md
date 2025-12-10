@@ -174,7 +174,7 @@ Random Forest outputs top fraud-indicating features (TF-IDF keywords and structu
 ```bash
 # Complete Pipeline
 pip install -r requirements.txt
-python dataprocessing.py
+python cleaning/dataprocessing.py
 jupyter notebook feature_engineering/feature_engineering.ipynb  # Run all cells
 python logit_model/logReg_model.py
 python random_forest_model/random_forest_model.py
