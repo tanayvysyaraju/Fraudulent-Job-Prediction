@@ -2,6 +2,10 @@
 
 This project builds a machine learning system to detect fraudulent job postings by combining text analysis (TF-IDF + SVD) with structured metadata features (salary, industry, location legitimacy, etc.). The model is trained on labeled Kaggle datasets and validated on newly scraped real-world job postings to test generalization beyond the training distribution.
 
+## Demo Video
+
+[Video Link](https://drive.google.com/file/d/1rY9tlv57_auEJM8gfsQEdXctbW67wAFl/view?usp=drive_link)
+
 ## Problem Overview
 
 Online job boards are seeing a rapid rise in fake job advertisements that mimic legitimate postings through similar language, buzzwords, and formatting. At the same time, real job descriptions have changed significantly between 2019–2025, creating additional challenges for detection.  
